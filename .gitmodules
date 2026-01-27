@@ -1,0 +1,6 @@
+[submodule "submodules"]
+	path = submodules
+	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization.git
+[submodule "src/submodules/diff_gauissian_splatting"]
+	path = src/submodules/diff_gauissian_splatting
+	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization.git
