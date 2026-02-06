@@ -260,14 +260,12 @@ def show_world_axis(name, Twc) -> None:
                    [0, 0, 255]
                ]
            )) 
-
 def show_points(name, xyz) -> None:
     rr.log(f"{origin}/PointsXYZ{name}",
            rr.Points3D(
                positions=xyz,
                radii=0.03
            ))
-
 
 
 
@@ -280,7 +278,7 @@ if __name__ == "__main__":
     origin = "test"
     rr.init(origin, spawn=True)
     # c = torch.normal(0, 5, (100, 3))
-    Ts1 = make_mri_views((100, 100, 10))
+    Ts1 = make_mri_views((10, 10, 10))
     points = torch.normal(0, 0.3, (100, 3))
     t = torch.zeros(3)
     # show_local_global_connections("1", c, t)
@@ -288,15 +286,15 @@ if __name__ == "__main__":
     # Ts1 = make_transform(c, t[0])
     for idx, Twc in enumerate(Ts1):
         show_world_axis(f"Frame0{idx}", Twc)
-        pts = points
-        trans = torch.Tensor([3.0, 0.0, 0.0])
-        # pts[:, 0] -= 
-        pts = (Twc[:3, :3] @ points.T).T
-        pts += Twc[:3, 3]
-        trans = (Twc[:3, :3] @ trans)
-        trans += Twc[:3, 3]
-        pts += (Twc[:3, 0] *2)
-        show_points(name=idx, xyz=pts)
+        # pts = points
+        # trans = torch.Tensor([3.0, 0.0, 0.0])
+        # # pts[:, 0] -= 
+        # pts = (Twc[:3, :3] @ points.T).T
+        # pts += Twc[:3, 3]
+        # trans = (Twc[:3, :3] @ trans)
+        # trans += Twc[:3, 3]
+        # pts += (Twc[:3, 0] *2)
+        # show_points(name=idx, xyz=pts)
     
 
     

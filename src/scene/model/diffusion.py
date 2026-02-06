@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from scipy.spatial.transform import Rotation as R
 # from gaussian_model import GaussianModel
 from warnings import warn
-from ..types import *
+from ...types import *
 
 
 
@@ -40,10 +40,6 @@ class CognetiveFieldConfig:
     learnable_view_encoding: Optional[bool]=True
     hiden_activations: Optional[str]="relu"
 
-def tensor_stats(x: torch.Tensor) -> None:
-    print(x.min(), x.mean(), x.max())
-    print(x.size())
-
 def _spatial2sequece(x: torch.Tensor, format: str="sequence") -> torch.Tensor:
     if x.ndim == 4:
         if format == "sequence":
@@ -68,6 +64,20 @@ def _sequence2spatial(
     return x
 
 
+class LinearIntepolationBlock(nn.Module):
+    def __init__(self, cfg: CognetiveFieldConfig) -> None:
+        super(LinearIntepolationBlock, self).__init__()
+        self.cfg = cfg
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features = self.cfg.hiden_features_size \
+            * self.cfg.patch_size[0] \
+            * self.cfg.patch_size[1]
+        x = F.interpolate(x[:, None, :], features).squeeze()
+        return _sequence2spatial(x,
+                                self.cfg.patch_size,
+                                self.cfg.hiden_features_size)
+    
 class TemporalPositionalEncoding(nn.Module):
     def __init__(self, cfg: CognetiveFieldConfig) -> None:
         super(TemporalPositionalEncoding, self).__init__()
@@ -138,9 +148,8 @@ class Attention(nn.Module):
                                     patch_size[0] \
                                     * patch_size[1] \
                                     * self.cfg.hiden_features_size, 3).unbind(dim=-1)
-        print(q.size(), k.size(), v.size())
-        qk = F.softmax((q @ k.transpose(-1, -2)) / math.sqrt(self.cfg.hiden_features_size))
-        print(qk.size())
+        qk = F.softmax((q @ k.transpose(-1, -2)) 
+                       / math.sqrt(self.cfg.hiden_features_size), dim=-1)
         qkv = qk @ v
         return qkv
 
@@ -157,7 +166,8 @@ class LatentFusionModel(nn.Module):
             for i in range(self.cfg.scaling_depth)
         ]
         self.scales_list = down_scales + up_scales
-        self._blocks = nn.ModuleList([
+        self.interpolation = LinearIntepolationBlock(config)
+        self.blocks = nn.ModuleList([
             nn.ModuleDict({
                 "fc": nn.Linear(self.cfg.hiden_features_size, self.cfg.hiden_features_size),
                 "scale": nn.Upsample(size=(
@@ -189,13 +199,14 @@ class LatentFusionModel(nn.Module):
     
     def forward(
         self,
-        embeds: torch.Tensor,
+        signals: torch.Tensor,
         poses: Optional[torch.Tensor]=None,
         timestamp: Optional[float]=1.0
     ) -> torch.Tensor:
-        x_last = embeds
-        x = _spatial2sequece(embeds)
-        for idx, block in enumerate(self._blocks): 
+        x = self.interpolation(signals)
+        x_last = x
+        x = _spatial2sequece(x)
+        for idx, block in enumerate(self.blocks): 
             
             factor = self.scales_list[idx]
             patch_size = (int(self.cfg.patch_size[0] * factor), 
@@ -216,17 +227,18 @@ class LatentFusionModel(nn.Module):
             
             rope_map = self.RoPE(poses)
             x = (rope_map @ x.transpose(-1, -2)).transpose(-1, -2)
-            print("Before Attention: ", x.size())
             x = block["att"](x, timestamp, patch_size)
             x = _sequence2spatial(x,
                                   patch_size,
                                   self.cfg.hiden_features_size)
             x = self.adaptive_residual(x, x_last)
-            if idx != len(self._blocks) - 1:
+            if idx != len(self.blocks) - 1:
                 x_last = x
                 x = _spatial2sequece(x) 
                 
         return x   
+    
+
             
 
 if __name__ == "__main__":
@@ -239,14 +251,20 @@ if __name__ == "__main__":
         patch_size=(32, 32)
     )
 
-    latent_net = LatentFusionModel(config)
-    test = torch.rand(100, *config.patch_size, config.hiden_features_size)
+    x = torch.rand(100,  3596984)
     poses = torch.rand(100, 4, 4)
-    t = 12.3
+    model = LatentFusionModel(config)
+    x = model(x, poses)
+    print(x.size())
 
-    print(f"TOTAL PARAMETERS N: {sum([p.numel() for p in latent_net.parameters()])}")
-    output = latent_net(test, poses, t)
-    print(output.size())
+    # latent_net = LatentFusionModel(config)
+    # test = torch.rand(100, *config.patch_size, config.hiden_features_size)
+    # poses = torch.rand(100, 4, 4)
+    # t = 12.3
+
+    # print(f"TOTAL PARAMETERS N: {sum([p.numel() for p in latent_net.parameters()])}")
+    # output = latent_net(test, poses, t)
+    # print(output.size())
     
     
     

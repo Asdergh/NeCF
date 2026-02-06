@@ -99,7 +99,8 @@ class GaussianModel:
         base_volume_size: Tuple[int, int, int]=(112, 112, 112),
         max_opacity_trashold: Optional[float]=0.65,
         min_opacity_trashold: Optional[float]=0.32,
-        dst_coeff: Optional[float]=0.0
+        dst_coeff: Optional[float]=0.0,
+        base_transform: Optional[torch.Tensor]=None
     ) -> None:
 
         assert (os.path.exists(source)), \
@@ -128,6 +129,8 @@ class GaussianModel:
             end_dim=-2
         )
         points_xyz = (2 * (points_xyz / torch.max(points_xyz))) - 1
+        if base_transform is not None:
+            points_xyz = (base_transform @ points_xyz.T).T
         opacities = torch.flatten(voxel_data)[:, None]
         opacities = (opacities / torch.max(opacities))
 
@@ -154,7 +157,7 @@ class GaussianModel:
 
         features_dc = (torch.ones(self.points_N, 3) * opacities)[..., None]
         # features_dc = (features_dc / torch.max(features_dc))
-        print(features_dc.size())
+        # print(features_dc.size())
         # -------
 
         features = torch.zeros(self.points_N, 3, (self.max_sh_degree + 1) ** 2)
@@ -184,7 +187,6 @@ class GaussianModel:
         opacities = self.opacities.detach().cpu().numpy()
         features_dc = torch.flatten(self.features_dc, start_dim=-2).detach().cpu().numpy()
         features_rest = torch.flatten(self.features_rest, start_dim=-2).detach().cpu().numpy()
-        print(features_rest.shape)
 
         attributes = ["x", "y", "z", 
                       "nx", "ny", "nz", 

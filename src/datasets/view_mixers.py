@@ -63,6 +63,7 @@ class ViewMixerDataset(Dataset):
         names = locations_df["name"].tolist()
         locations = locations_df.iloc[:, 1:5].to_numpy()
         self.channel_index2location = {k_ch: xyz for (k_ch, xyz) in zip(names, locations)}
+        
 
         annots_df = pd.read_csv(annots_f, sep="\t")
         for f_name in annots_df["filename"]:
@@ -73,25 +74,15 @@ class ViewMixerDataset(Dataset):
 
             eeg_file = os.path.join(source, sensor_type, f_name)
             raw = read_raw_brainvision(eeg_file)
-            print(int(raw.info["sfreq"] * 2))
-            pcd = raw.compute_psd(average=None, 
-                                fmax=self.cfg.f_max, 
-                                n_fft=int(raw.info["sfreq"] * 4),
-                                n_overlap=int(raw.info["sfreq"] * 3.8))
             signals = torch.Tensor(raw.get_data())
-            Sxx = torch.Tensor(pcd.get_data())[:, :13, :]
-            print(Sxx.size())
-            Sxx = F.interpolate(Sxx[None], 
-                                self.cfg.target_freq_size,
-                                mode="bilinear").squeeze()
+            print(signals.size())
             
             import matplotlib.pyplot as plt
-            plt.style.use("dark_background")
-
             _, axis = plt.subplots()
-            axis.imshow(Sxx[0])
+            axis.plot(signals[0])
             plt.show()
-            break
+            
+            
 
 
             
@@ -101,9 +92,33 @@ class ViewMixerDataset(Dataset):
 
 
 if __name__ == "__main__":
+    import rerun as rr
+    from scipy.spatial.transform import Rotation as R
 
+    origin = "origin"
+    rr.init(origin, spawn=True)
+    
     source = "/media/ram/T71/ds004024-download/sub-CON001"
     config = ViewMixerDatasetConfig(f_max=100)
     dataset = ViewMixerDataset(config)
     dataset.read_sensors(source)
+    locations = torch.Tensor(np.stack([list(dataset.channel_index2location.values())], axis=0)).squeeze()
+    locations *= 100
+    Twcs = make_transform(locations, torch.zeros(3))
+    for idx, Twc in enumerate(Twcs):
+        quat = R.from_matrix(Twc[:3, :3]).as_quat(scalar_first=True)
+        print(quat)
+        rr.log(f"{origin}/Frame{idx}",
+               rr.Arrows3D(
+                   vectors=[Twc[:3, 0], Twc[:3, 1], Twc[:3, 2]],
+                   origins=Twc[:3, 3][None],
+                   colors=[
+                       [255, 0, 0],
+                       [0, 255, 0],
+                       [0, 0, 255]
+                   ]
+               ))
+
+
+    
     
