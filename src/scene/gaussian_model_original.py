@@ -219,11 +219,6 @@ class GaussianModel:
 
         max_opacity_trashold = torch.tensor(max_opacity_trashold).to(opacities.dtype)
         min_opacity_trashold = torch.tensor(min_opacity_trashold).to(opacities.dtype)
-        # mask = torch.where(
-        #     (opacities < torch.quantile(opacities, max_opacity_trashold)) \
-        #     & (opacities > torch.quantile(opacities, min_opacity_trashold)),
-        #     True, False
-        # )
         mask = torch.where(
             (opacities > torch.quantile(opacities, min_opacity_trashold)) \
                 | (opacities < torch.quantile(opacities, max_opacity_trashold)),

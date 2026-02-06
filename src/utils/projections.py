@@ -164,6 +164,7 @@ def get_cylinder_dirs(
     return xyz
 
 def cross_check(r: torch.Tensor, t: torch.Tensor):
+    print(r.size(), t.size())
     cross_map = torch.linalg.cross(t, r)
     cross_map /= torch.linalg.norm(cross_map, dim=-1, keepdim=True)
     cross_map = torch.linalg.norm(cross_map, dim=-1)
@@ -205,7 +206,6 @@ def make_transform(c: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         up[map_uz] = dz
     
     Nuy = torch.sum(map_uy)
-    print(Nuy, Nuz)
     if Nuy:
         dz = torch.cross(forward[map_uy], world_xyz[1][None])
         dz /= torch.linalg.norm(dz, dim=-1, keepdim=True)
@@ -223,6 +223,25 @@ def make_transform(c: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     Transform[:, 3, 3] = 1.0
     return Transform
 
+
+def make_mri_views(grid_size: Tuple[int, int, int], pos_factor: float=1.0):
+
+    world_axis = torch.eye(3)
+    
+    lenghts = lambda i: (torch.arange(grid_size[i]) * pos_factor)
+    f_p = world_axis[0].repeat(grid_size[0], 1) * lenghts(0)[:, None]
+    b_p = -f_p
+    r_p = world_axis[1].repeat(grid_size[1], 1) * lenghts(1)[:, None]
+    l_p = -r_p
+    u_p = world_axis[2].repeat(grid_size[2], 1) * lenghts(2)[:, None]
+    d_p = -u_p
+    c = torch.cat([f_p, b_p, 
+                   r_p, l_p, 
+                   u_p, d_p], dim=0)
+    t = torch.zeros(1, 3)
+    Transforms = make_transform(c, t)
+    return Transforms
+    
 
 def show_local_global_connections(name, c, t):
     rr.log(f"{origin}/local_global_directions{name}",
@@ -260,12 +279,13 @@ if __name__ == "__main__":
     
     origin = "test"
     rr.init(origin, spawn=True)
-    c = torch.normal(0, 5, (100, 3))
+    # c = torch.normal(0, 5, (100, 3))
+    Ts1 = make_mri_views((100, 100, 10))
     points = torch.normal(0, 0.3, (100, 3))
     t = torch.zeros(3)
-    show_local_global_connections("1", c, t)
+    # show_local_global_connections("1", c, t)
     
-    Ts1 = make_transform(c, t[0])
+    # Ts1 = make_transform(c, t[0])
     for idx, Twc in enumerate(Ts1):
         show_world_axis(f"Frame0{idx}", Twc)
         pts = points
