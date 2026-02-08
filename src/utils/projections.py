@@ -56,7 +56,7 @@ def quat2Rmat(q: Union[torch.Tensor, np.ndarray], in_format="xyzw") -> np.ndarra
 
     return (Rmat_batched[0] if not batched else Rmat_batched)
 
-def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], out_format="xyzw") -> np.ndarray:
+def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], scalar_first=False) -> np.ndarray:
     
     if isinstance(Rmat, torch.Tensor):
         Rmat = Rmat.detach().cpu().numpy() 
@@ -80,7 +80,7 @@ def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], out_format="xyzw") -> np.nd
         y = (Rmat[where_tr_pos, 0, 2] - Rmat[where_tr_pos, 2, 0]) / (4 * w + 1e-6)
         z = (Rmat[where_tr_pos, 1, 0] - Rmat[where_tr_pos, 0, 1]) / (4 * w + 1e-6)
         q_result[where_tr_pos] = np.stack((
-            [x, y, z, w] if out_format == "xyzw" 
+            [x, y, z, w] if not scalar_first 
             else [w, x, y, z]
         ), axis=-1)
     
@@ -91,7 +91,7 @@ def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], out_format="xyzw") -> np.nd
         y = (Rmat[where_r11_max, 0, 1] + Rmat[where_r11_max, 1, 0]) / (4 * x + 1e-6)
         z = (Rmat[where_r11_max, 0, 2] + Rmat[where_r11_max, 2, 0]) / (4 * x + 1e-6)
         q_result[where_r11_max, ...] = np.stack((
-            [x, y, z, w] if out_format == "xyzw" 
+            [x, y, z, w] if not scalar_first 
             else [w, x, y, z]
         ), axis=-1)
 
@@ -102,7 +102,7 @@ def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], out_format="xyzw") -> np.nd
         x = (Rmat[where_r22_max, 0, 1] + Rmat[where_r22_max, 1, 0]) / (4 * y + 1e-6)
         z = (Rmat[where_r22_max, 1, 2] + Rmat[where_r22_max, 2, 1]) / (4 * y + 1e-6)
         q_result[where_r22_max, ...] = np.stack((
-            [x, y, z, w] if out_format == "xyzw" 
+            [x, y, z, w] if not scalar_first
             else [w, x, y, z]
         ), axis=-1)
 
@@ -113,7 +113,7 @@ def Rmat2quat(Rmat: Union[torch.Tensor, np.ndarray], out_format="xyzw") -> np.nd
         x = (Rmat[where_r33_max, 0, 2] - Rmat[where_r33_max, 2, 0]) / (4 * z + 1e-6)
         y = (Rmat[where_r33_max, 1, 2] - Rmat[where_r33_max, 2, 1]) / (4 * z + 1e-6)
         q_result[where_r33_max, ...] = np.stack((
-            [x, y, z, w] if out_format == "xyzw" 
+            [x, y, z, w] if not scalar_first
             else [w, x, y, z]
         ), axis=-1)
     
@@ -243,62 +243,8 @@ def make_mri_views(grid_size: Tuple[int, int, int], pos_factor: float=1.0):
     return Transforms
     
 
-def show_local_global_connections(name, c, t):
-    rr.log(f"{origin}/local_global_directions{name}",
-           rr.Arrows3D(
-               vectors=c,
-               origins=t
-           ))
-def show_world_axis(name, Twc) -> None:
-    rr.log(f"{origin}/{name}",
-           rr.Arrows3D(
-               vectors=[Twc[:3, 0], Twc[:3, 1], Twc[:3, 2]],
-               origins=Twc[:3, 3][None],
-               colors=[
-                   [255, 0, 0],
-                   [0, 255, 0],
-                   [0, 0, 255]
-               ]
-           )) 
-def show_points(name, xyz) -> None:
-    rr.log(f"{origin}/PointsXYZ{name}",
-           rr.Points3D(
-               positions=xyz,
-               radii=0.03
-           ))
 
 
-
-
-
-if __name__ == "__main__":
-    
-    import rerun as rr
-    
-    origin = "test"
-    rr.init(origin, spawn=True)
-    # c = torch.normal(0, 5, (100, 3))
-    Ts1 = make_mri_views((10, 10, 10))
-    points = torch.normal(0, 0.3, (100, 3))
-    t = torch.zeros(3)
-    # show_local_global_connections("1", c, t)
-    
-    # Ts1 = make_transform(c, t[0])
-    for idx, Twc in enumerate(Ts1):
-        show_world_axis(f"Frame0{idx}", Twc)
-        # pts = points
-        # trans = torch.Tensor([3.0, 0.0, 0.0])
-        # # pts[:, 0] -= 
-        # pts = (Twc[:3, :3] @ points.T).T
-        # pts += Twc[:3, 3]
-        # trans = (Twc[:3, :3] @ trans)
-        # trans += Twc[:3, 3]
-        # pts += (Twc[:3, 0] *2)
-        # show_points(name=idx, xyz=pts)
-    
-
-    
-    
 
         
     

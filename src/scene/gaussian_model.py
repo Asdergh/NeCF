@@ -25,10 +25,20 @@ Optconfig = namedtuple("OptConfig", [
     "cams_q_lr_rate"
 ])
 
+
+@dataclass 
+class Sensor:
+    Transform: Optional[torch.Tensor]=None
+    theta_max: Optional[List[float]]=None
+    phi_max: Optional[List[float]]=None
+    rad_max: Optional[List[float]]=None
+    depths: Optional[List[float]]=None # depths of each sensor along direction
+
 @dataclass
 class GaussianModel:
     name: str
     viewpoints_N: Optional[int]=None
+    # gs attributes 
     points_N: Optional[int]=None
     xyz: Optional[TensorType["Npoints", "XYZ"]]=None
     features_dc: Optional[TensorType["Npoints", "FEATURES", "RGB"]]=None
@@ -37,6 +47,9 @@ class GaussianModel:
     quats: Optional[TensorType["Npoints", "XYZW"]]=None
     features_rest: Optional[TensorType["Npoints", "FEATURES", "RGB"]]=None
     max_sh_degree: Optional[int]=2
+    sensor: Optional[Sensor]=None # sensor attributes
+    
+
     
     # def __post_init__(self) -> None:
     #     if self.features_rest is not None:
@@ -47,6 +60,20 @@ class GaussianModel:
     #         self.features_rest = self.features[:, 1:, :]
     #     self.features[:, :1, :] = self.features_dc
     
+    def restore(self, xyz: torch.Tensor, 
+                scales: torch.Tensor,
+                quats: torch.Tensor,
+                opacities: torch.Tensor,
+                features_dc: torch.Tensor,
+                features_rest: torch.Tensor) -> None:
+        self.xyz = (xyz if xyz.require_grad else nn.Parameter(xyz).requires_grad_(True))
+        self.scales = (scales if scales.require_grad else nn.Parameter(scales).requires_grad_(True))
+        self.quats = (quats if quats.require_grad else nn.Parameter(quats).requires_grad_(True))
+        self.opacities = (opacities if opacities.require_grad else nn.Parameter().requires_grad_(True))
+        self.features_dc = (features_dc if features_dc.require_grad else nn.Parameter().requires_grad_(True))
+        self.features_rest = (features_rest if features_rest.require_grad else nn.Parameter().requires_grad_(True))
+        
+
     @property
     def covariance(self):
         M = build_scaling_rotation(self.get_scales, self.quats)
@@ -92,16 +119,13 @@ class GaussianModel:
                 {"params": [quats], "name": "orientation", "lr": opt_cfg.cams_q_lr_rate}
             ])
     
-    def load_nifti(
-        self, 
-        source: str, 
-        pts_scale: Optional[float]=1.0,
-        base_volume_size: Tuple[int, int, int]=(112, 112, 112),
-        max_opacity_trashold: Optional[float]=0.65,
-        min_opacity_trashold: Optional[float]=0.32,
-        dst_coeff: Optional[float]=0.0,
-        base_transform: Optional[torch.Tensor]=None
-    ) -> None:
+    def load_nifti(self, source: str, 
+                    pts_scale: Optional[float]=1.0,
+                    base_volume_size: Tuple[int, int, int]=(112, 112, 112),
+                    max_opacity_trashold: Optional[float]=0.65,
+                    min_opacity_trashold: Optional[float]=0.32,
+                    dst_coeff: Optional[float]=0.0,
+                    base_transform: Optional[torch.Tensor]=None) -> None:
 
         assert (os.path.exists(source)), \
         (f"couldn't find any fiel at location: {source}")

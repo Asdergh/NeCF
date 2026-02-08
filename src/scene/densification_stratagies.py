@@ -343,5 +343,45 @@ class BoundsRestrictionStratagy(DensificationBase):
                 continue
             mask = self.check_model(k)
             self.update_gs_model(k, mask)
+
+
+
+
+
+# if __name__ == "__main__":
+
+#     from ..utils.projections import make_transform
+#     c = torch.rand(10, 3)
+#     t = torch.zeros(3)
+#     Twcs = make_transform(c, t)
+#     max_sh_degree = 2
+#     stratagy = BoundsRestrictionStratagy()
+#     for idx, Twc in enumerate(Twcs):
+
+#         xyz = torch.normal(0, 100, (100, 3))
+#         xyz = (Twc @ xyz.T) .T
+#         scales = torch.rand(100, 3)
+#         quats = torch.rand(100, 1, 3)
+#         opacities = torch.rand(100, 1)
+#         features_dc = torch.rand(100, 3, 1)
+#         features_rest = torch.rand(100, ((max_sh_degree + 1) ** 2) - 1, 3)
+
+#         gs = GaussianModel(name=f"model_{idx}")
+#         gs.xyz = nn.Parameter(xyz.require_grad_(True))
+#         gs.scales = nn.Parameter(scales.require_grad_(True))
+#         gs.quats = nn.Parameter(quats.require_grad_(True))
+#         gs.opacities = nn.Parameter(opacities.require_grad_(True))
+#         gs.features_dc = nn.Parameter(features_dc.require_grad_(True))
+#         gs.features_rest = nn.Parameter(features_rest.require_grad_(True))
+
+#         stratagy.add_gs_model(gs, 45.0, 90.0, 100)
+    
+#     stratagy.update_state()
+    
+    
+        
+
+        
+        
         
         

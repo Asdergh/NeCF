@@ -65,22 +65,22 @@ class ViewMixerDataset(Dataset):
         self.channel_index2location = {k_ch: xyz for (k_ch, xyz) in zip(names, locations)}
         
 
-        annots_df = pd.read_csv(annots_f, sep="\t")
-        for f_name in annots_df["filename"]:
-            stimul_type = f_name[f_name.find("task") + 5: f_name.find("run") - 1]
-            print(stimul_type)
-            if stimul_type not in self.cfg.stimul_types:
-                continue
+        # annots_df = pd.read_csv(annots_f, sep="\t")
+        # for f_name in annots_df["filename"]:
+        #     stimul_type = f_name[f_name.find("task") + 5: f_name.find("run") - 1]
+        #     print(stimul_type)
+        #     if stimul_type not in self.cfg.stimul_types:
+        #         continue
 
-            eeg_file = os.path.join(source, sensor_type, f_name)
-            raw = read_raw_brainvision(eeg_file)
-            signals = torch.Tensor(raw.get_data())
-            print(signals.size())
+        #     eeg_file = os.path.join(source, sensor_type, f_name)
+        #     raw = read_raw_brainvision(eeg_file)
+        #     signals = torch.Tensor(raw.get_data())
+        #     print(signals.size())
             
-            import matplotlib.pyplot as plt
-            _, axis = plt.subplots()
-            axis.plot(signals[0])
-            plt.show()
+        #     import matplotlib.pyplot as plt
+        #     _, axis = plt.subplots()
+        #     axis.plot(signals[0])
+        #     plt.show()
             
             
 
@@ -93,31 +93,48 @@ class ViewMixerDataset(Dataset):
 
 if __name__ == "__main__":
     import rerun as rr
+    from ..scene.loging import Logger
+    from ..scene.gaussian_model import Sensor
     from scipy.spatial.transform import Rotation as R
 
     origin = "origin"
-    rr.init(origin, spawn=True)
+    # rr.init(origin, spawn=True)
     
     source = "/media/ram/T71/ds004024-download/sub-CON001"
     config = ViewMixerDatasetConfig(f_max=100)
     dataset = ViewMixerDataset(config)
     dataset.read_sensors(source)
     locations = torch.Tensor(np.stack([list(dataset.channel_index2location.values())], axis=0)).squeeze()
-    locations *= 100
+    locations *= 1000
     Twcs = make_transform(locations, torch.zeros(3))
+    # for idx, Twc in enumerate(Twcs):
+    #     quat = R.from_matrix(Twc[:3, :3]).as_quat(scalar_first=True)
+    #     print(quat)
+    #     rr.log(f"{origin}/Frame{idx}",
+    #            rr.Arrows3D(
+    #                vectors=[Twc[:3, 0], Twc[:3, 1], Twc[:3, 2]],
+    #                origins=Twc[:3, 3][None],
+    #                colors=[
+    #                    [255, 0, 0],
+    #                    [0, 255, 0],
+    #                    [0, 0, 255]
+    #                ]
+            #    ))
+    
+    logger = Logger()
     for idx, Twc in enumerate(Twcs):
-        quat = R.from_matrix(Twc[:3, :3]).as_quat(scalar_first=True)
-        print(quat)
-        rr.log(f"{origin}/Frame{idx}",
-               rr.Arrows3D(
-                   vectors=[Twc[:3, 0], Twc[:3, 1], Twc[:3, 2]],
-                   origins=Twc[:3, 3][None],
-                   colors=[
-                       [255, 0, 0],
-                       [0, 255, 0],
-                       [0, 0, 255]
-                   ]
-               ))
+        sensor = Sensor(
+            theta_max=[23, 23, 23],
+            phi_max=[32, 32, 32],
+            rad_max=[12, 12, 12],
+            depths=[100, 75, 55],
+            Transform=Twc
+        )
+        gs = GaussianModel(name=f"gs_model_{idx}", sensor=sensor)
+        logger.add_sensor_space(gs)
+        logger.log_sensor2viser(gs.name)
+    logger.run_view()
+
 
 
     
